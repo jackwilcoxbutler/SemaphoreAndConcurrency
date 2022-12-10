@@ -1,5 +1,5 @@
 CC       = g++
-CFLAGS   = -Wall -g
+CFLAGS   = -Wall -g -lpthread -lrt
 LDFLAGS  = -lreadline
 OBJFILES = cafe.o
 TARGET   = main

@@ -7,12 +7,12 @@
 using namespace std;
 
 // total number of customers
-#define NUM_CUSTOMERS 10
+#define NUM_CUSTOMERS 50
 
 // maximum length of the line waiting for service
 // when 1 person is being served, and 2 more are 
 // waiting, new customers will leave
-#define MAX_OCCUPANCY 2
+#define MAX_OCCUPANCY 10
 
 // variables to track the number of customers in line 
 // and total number who have left or been served
@@ -25,6 +25,15 @@ int served  = 0;
 // 1. two to safely update the shared variables waiting and served
 // 2. one to signal customers
 // 3. one to signal the barista
+
+//waiting
+sem_t sem_waiting;
+//served
+sem_t sem_served;
+//signal customers
+sem_t sem_sig_c;
+//signal barista
+sem_t sem_sig_b;
 
 
 // simulate time passing
@@ -39,16 +48,25 @@ void *barista_thread(void *args)
 {
   // only serve the number of customers that we expect 
   // in this run, then close the cafe
+  sem_wait(&sem_served);
   while(served < NUM_CUSTOMERS) {
+    sem_post(&sem_served);
+     
     // Wait for a customer to arrive
+    sem_wait(&sem_sig_b);
+    // if(served < NUM_CUSTOMERS)
     // take the customer from the line
+    
 
     // make a coffee
     random_wait(7);
-
+    sem_post(&sem_sig_c);
+    sem_wait(&sem_served);
     served += 1;
-  }
+    cout << served << " Done." << endl;
 
+  }
+  
   pthread_exit(0);
 }
 
@@ -62,16 +80,32 @@ void *customer_thread(void *arg)
   cout << "[Customer " << i << "] **** arrived. ****" << endl;
 
   // Each customer should try to get one (1) coffee
+  sem_wait(&sem_waiting);
   if (waiting >= MAX_OCCUPANCY) 
   {
-    cout << "[Customer " << i << "] **** leaving. ****" << endl;
+    sem_post(&sem_waiting);
+    cout << "[Customer " << i << "] **** leaving... Line too long ****" << endl;
+    sem_wait(&sem_served);
     served += 1;
-    
+    cout << served << " Done." << endl;
+    sem_post(&sem_served);
+
     pthread_exit(0);
   } else {
     // join the line to get a coffee
+    waiting++;
+    sem_post(&sem_waiting);
+
     // signal the barista in case I'm the only customer here
+    sem_post(&sem_sig_b);
+
     // wait for my coffee
+    sem_wait(&sem_sig_c);
+
+    cout << "[Customer " << i << "] **** Served & leaving. ****" << endl;
+    sem_wait(&sem_waiting);
+    waiting--;
+    sem_post(&sem_waiting);
   }
   pthread_exit(0);
 }
@@ -79,6 +113,11 @@ void *customer_thread(void *arg)
 
 int main()
 {
+  sem_init(&sem_waiting, 0, 1);
+  sem_init(&sem_served, 0, 1);
+  sem_init(&sem_sig_c, 0, 0);
+  sem_init(&sem_sig_b, 0, 0);
+  
   // seed the random number generator
   srandom(2688);
 
@@ -104,5 +143,28 @@ int main()
   pthread_join(barista, NULL);
   cout << "The cafe is now closed!" << endl;
   
+  sem_destroy(&sem_waiting);
+  sem_destroy(&sem_served);
+  sem_destroy(&sem_sig_c);
+  sem_destroy(&sem_sig_b);
+
   exit(0);
 }
+
+
+
+/*
+barista holds c signal
+customer walks in
+c signals barista
+customer waits on c signal
+barista makes coffee
+spends time
+
+barista posts c signal
+customer 
+
+
+
+
+*/
